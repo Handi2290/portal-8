@@ -1,0 +1,116 @@
+@extends('template')
+
+@section('main')
+    <section class="content-header">
+        <h1>Approve SKPI</h1>
+        <ol class="breadcrumb">
+            <li><a href="#"><i class="fa fa-dashboard"></i> Home</a></li>
+            <li class="active">Admin SKPI</li>
+        </ol><br>
+
+            @if(session('hapus'))
+            <div class="alert alert-danger" role="alert">
+                {{session('hapus')}}
+            </div>
+            @endif
+
+            @if(session('approved'))
+            <div class="alert alert-success" role="alert">
+                {{session('approved')}}
+            </div>
+            @endif
+    </section>
+
+    <section class="content">
+        <div class="box box-default">
+                <div class="box-header with-border">
+                    <h4 class="box-title">Form Approval SKPI</h4>
+                </div><br>
+        <div class="container">
+        <div class="col-xs-15 table-responsive">            
+        <form action="{{route('admin.skpi.cari')}}" method="GET">
+            <input type="text" name="cari" placeholder="Cari data SKPI" value="{{ old('cari') }}">
+            <input type="submit" value="Cari">
+        </form>
+        <br><p>
+        <table class="table table-responsive">
+            <tr>
+                <th class="text-center">Nim</th>
+                <th class="text-center">Nama</th>
+                <th class="text-center">Judul</th>
+                <th class="text-center">Judul (English)</th>
+                <th class="text-center">File</th>
+                <th class="text-center">Status</th>
+                <th class="text-center">Bobot</th>
+                <th class="text-center">Aksi</th>
+            </tr>
+            @foreach($data_skpi as $data)
+            <form method="post" action="{{route('admin.skpi.confirm',['$id'=>$data->id])}}">
+            {{ csrf_field() }}
+            <tr>
+                <td class="text-center" width="50">{{ $data->nim }}</td>
+                <td class="text-center">{{ $data->nama }}</td>
+                <td class="text-center">{{ $data->judul }}</td>
+                <td class="text-center">{{ $data->judul_eng }}</td>
+                <td class="text-center" width="50">
+                @if($data->file != '')  
+                          <?php $view =  substr($data->judul,-4); ?>
+                              @if( $view == '.pdf' )
+                                <a href="{{ asset('images/skpi/'.$data->file) }}" target="_blank" style="font-size:20px;"  alt="Responsive image"><i class="fa fa-file-pdf-o"></i>File Pdf</a>
+                              @elseif($view == '.doc')
+                                <a href="{{ asset('images/skpi/'.$data->file) }}" target="_blank"><i class="fa fa-file-doc-o"></i>File Doc</a>
+                              @elseif($view == '.docx')
+                                <a href="{{ asset('images/skpi/'.$data->file) }}" target="_blank"><i class="fa fa-file-doc-o"></i>File Docx</a>
+                              @else
+                              <a target="_blank" href="{{ asset('images/skpi/'.$data->file) }}"><img width="50px" src="{{ asset('images/skpi/'.$data->file) }}" alt="Foto Pendukung" class="img-responsive">
+                              </a>
+                              @endif
+                @endif</td>
+                
+                   <td class="text-center" width="50">
+                    @if($data->status=='A')
+                    <span class="badge bg-green">Diterima</span>
+                    @else
+                    <span class="badge bg-yellow">Pengajuan</span>
+                    @endif
+                  </td>
+
+                  <td class="text-center" width="20">
+                    @if($data->status=='N')
+                    <input class="input-xs input-bobot" type="text" name="bobot">
+                    @else
+                    {{ $data->bobot }}
+                    @endif
+                  </td>
+                   <td class="text-center">
+                       @if($data->status=='N')
+                       <button type="submit" class="btn btn-xs btn-success btn-sm fa fa-check"></button>
+                       <a class="btn btn-hapus btn-xs btn-danger btn-sm fa fa-trash" href="{{route('admin.skpi.hapus',['$id'=>$data->id])}}"></a>
+                       @else
+                       <a href="{{route('admin.skpi.cancel',['$id'=>$data->id])}}" class="fa fa-close"> Batalkan</a>
+                       @endif
+                   </td>                
+            </tr>
+            </form>
+            @endforeach</div></div></div>
+        </table>
+        <br/>
+        Halaman : {{ $data_skpi->currentPage() }} <br/>
+        Jumlah Data : {{ $data_skpi->total() }} <br/>
+        Data Per Halaman : {{ $data_skpi->perPage() }} <br/>
+       
+        {{ $data_skpi->links() }}     
+  </section>
+  <script type="text/javascript">
+    $(document).ready(function (b) {
+    $('.btn-hapus').click(function (e){
+        console.log(e)
+        e.preventDefault()
+        var c=confirm('Yakin akan menghapus data SKPI mahasiswa ini?')
+        if(c){
+            window.location.href=$(e.delegateTarget).attr('href')
+        }
+    })
+    });
+    </script>
+@stop

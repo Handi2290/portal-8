@@ -1,0 +1,221 @@
+@extends ('template')
+
+
+@section ('main')
+<section class="content-header">
+  <h1>E-Sertifikat & SKPI</h1>
+  <ol class="breadcrumb">
+      <li><a href="#"><i class="fa fa-dashboard"></i> Home</a></li>
+      <li class="active">Pengajuan SKPI</li>
+  </ol>
+</section>
+
+<!-- Main content -->
+<section class="content">
+    <div class="row">
+      <div id="print-view" class="content">        
+        <div class="box content" style="font-size:14px">
+            <div class="table-responsive">
+              <div class="box-header with-border">
+                <h4 class="box-title">Form Approval SKPI</h4>
+              </div>
+                <ul class="nav nav-tabs">
+                  <li class="active"><a href="#tab_1" data-toggle="tab">SERTIFIKAT & KARYA ILMIAH</a></li>
+                  <li><a href="#tab_2" data-toggle="tab">SERTIFIKAT NON-AKADEMIK KAMPUS</a></li>
+                  <a target="_blank" href="{{ route('mahasiswa.skpi.print') }}" class="btn btn-warning" style="padding-bottom: 12px;">CETAK SKPI</a>
+                </ul>
+                <div class="tab-content">
+                  
+                <div class="tab-pane active" id="tab_1">
+                  <form method="POST" enctype="multipart/form-data" action="{{ route('mahasiswa.skpi.simpan') }}">
+                  {{ csrf_field() }}
+                  <input type="hidden" value="A" name="kategori">
+                    <h4><strong>A. Sertifikat & Karya Ilmiah</strong></h4>
+                    <table>
+                          <tr>
+                              <td width=60>Judul</td>
+                              <td><input type="text"  name="judul" size=100></td>
+                          </tr>
+                          <tr>
+                              <td>
+                                  &nbsp;
+                              </td>
+                              <td>
+                                  &nbsp;
+                              </td>
+                          </tr>
+                          <tr>
+                              <td width=60>Judul&nbsp;(ENG)&nbsp;&nbsp;&nbsp;</td>
+                              <td><input type="text"  name="judul_eng" size=100></td>
+                          </tr>
+                          <tr>
+                              <td>File</td>
+                              <td>
+                                <br/>
+                                <input type="file"  name="file">
+
+                                <font style="font-size: 20px; color: red;">
+                                    &nbsp;(Max 1MB)
+                                </font>
+                              </td> 
+                          </tr>
+                        </table>
+                        <input type="submit" name="submit" value="Simpan" class="btn btn-success"/>
+                        </br><br/>
+                        </form>
+                        <ul>
+                            <li>Refrensi : Cara Mengecilkan File Berbentuk JPEG , PNG , dan PDF <a target="_blank" href="https://compresspng.com/id/"><font style="color: red;">LINK</font></a></li>
+                            <li>Pengisian jumlah minimal kegiatan sebagai informasi aktifitas pendukung kehidupan akademik kampus pada dokumen <b>Surat Keterangan Pendukung Ijazah (SKPI) 6 (Enam) Kegiatan</b></li>
+                        </ul>
+                        </br></br>
+                     <table class="table table-striped" align="center" id="list_skpi">
+                      <thead>
+                        <tr>
+                          <th><center>NO.</center></th>
+                          <th><center>Judul</center></th>
+                          <th><center>Judul (ENG)</center></th>
+                          <th><center>File</center></th>
+                          <th><center>Status</center></th>
+                          <th><center>Bobot</center></th>
+                          <th><center>Aksi</center></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                          @php
+                          $counter=0;
+                          @endphp
+                          @foreach($data_skpi as $index => $skpi)
+                          @if($skpi->kategori=='A')
+                            <tr>
+                                <td class="text-center" width="20">{{$counter+1}}</td>
+                                <td class="text-center">{{$skpi->judul}}</td>
+                                <td class="text-center">{{$skpi->judul_eng}}</td>
+                                <td class="text-center" width="30"><a target="_blank" href="/images/skpi/{{$skpi->file}}">Lihat</a></td>
+                                <td class="text-center" width="50">
+                                    @if($skpi->status=='A')
+                                    <span class="badge bg-green">Diterima</span>
+                                    @else
+                                    <span class="badge bg-yellow">Pengajuan</span>
+                                    @endif
+                                </td>
+                                <td class="text-center" width="30">
+                                    @if($skpi->bobot==null)
+                                    <a>0</a>
+                                    @else
+                                    {{$skpi->bobot}}
+                                    @endif
+                                </td>
+                                <td class="text-center" width="20"><a href="{{route('mahasiswa.skpi.hapus',['skpi'=>$skpi])}}" class="btn btn-hapus btn-xs btn-trash bg-red" title="Hapus"><i class="fa fa-trash"></i></a></td>
+                            </tr>
+                            @endif
+                          @endforeach
+                      </tbody>
+                     </table>                  
+                  </div>
+
+                  <div class="tab-pane" id="tab_2">
+                    <form method="POST" enctype="multipart/form-data" action="{{ route('mahasiswa.skpi.simpan') }}">
+                    {{ csrf_field() }}
+                    <input type="hidden" value="B" name="kategori">
+                    <h4><strong>B. Sertifikat Non-Akademik Kampus</strong></h4>
+                    <table>
+                          <tr>
+                              <td width=60>Judul</td>
+                              <td><input type="text"  name="judul" size=100></td>
+                          </tr>
+                          <tr>
+                              <td>
+                                  &nbsp;
+                              </td>
+                              <td>
+                                  &nbsp;
+                              </td>
+                          </tr>
+                          <tr>
+                              <td width=60>Judul&nbsp;(ENG)&nbsp;&nbsp;&nbsp;</td>
+                              <td><input type="text"  name="judul_eng" size=100></td>
+                          </tr>
+                          <tr>
+                              <td>File</td>
+                              <td>
+                                <br/>
+                                <input type="file"  name="file">
+
+                                <font style="font-size: 20px; color: red;">
+                                    &nbsp;(Max 1MB)
+                                </font>
+                              </td> 
+                          </tr>
+                      </table>  
+                      <input type="submit" name="submit" value="Simpan" class="btn btn-success"/>
+                    </br><br/>
+                    </form>
+                     <ul>
+                        <li>Refrensi : Cara Mengecilkan File Berbentuk JPEG , PNG , dan PDF <a target="_blank" href="https://compresspng.com/id/"><font style="color: red;">LINK</font></a></li>
+                        <li>Pengisian jumlah minimal kegiatan sebagai informasi aktifitas pendukung kehidupan akademik kampus pada dokumen <b>Surat Keterangan Pendukung Ijazah (SKPI) 6 (Enam) Kegiatan</b></li>
+                    </ul>
+                    </br></br>
+                    <table class="table table-striped" align="center" id="list_skpi2">
+                      <thead>
+                        <tr>
+                          <th><center>NO.</center></th>
+                          <th><center>Judul</center></th>
+                          <th><center>Judul (ENG)</center></th>
+                          <th><center>File</center></th>
+                          <th><center>Status</center></th>
+                          <th><center>Bobot</center></th>
+                          <th><center>Aksi</center></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                      @php
+                      $counter=0;
+                      @endphp
+                      @foreach($data_skpi as $index => $skpi)
+                      @if($skpi->kategori=='B')
+                            <tr>
+                            <td class="text-center" width="20">{{$counter+1}}</td>
+                            <td class="text-center">{{$skpi->judul}}</td>
+                            <td class="text-center">{{$skpi->judul_eng}}</td>
+                            <td class="text-center" width="30"><a target="_blank" href="/images/skpi/{{$skpi->file}}">Lihat</a></td>
+                            <td class="text-center" width="50">
+                                @if($skpi->status=='A')
+                                <span class="badge bg-green">Diterima</span>
+                                @else
+                                <span class="badge bg-yellow">Pengajuan</span>
+                                @endif
+                            </td>
+                            <td class="text-center" width="30">
+                                @if($skpi->bobot==null)
+                                <a>0</a>
+                                @else
+                                {{$skpi->bobot}}
+                                @endif
+                            </td>
+                            <td class="text-center" width="20"><a href="{{route('mahasiswa.skpi.hapus',['skpi'=>$skpi])}}" class="btn btn-hapus btn-xs btn-trash bg-red" title="Hapus"><i class="fa fa-trash"></i></a></td>
+                        </tr>
+                        @endif
+                        @endforeach
+                      </tbody>
+                    </table>
+                  </div>
+              </div>
+            </div>
+          </div>
+        </div>
+    </div>
+    </section>
+    <!-- /.content -->
+    <script type="text/javascript">
+    $(document).ready(function (b) {
+    $('.btn-hapus').click(function (e){
+        console.log(e)
+        e.preventDefault()
+        var c=confirm('Yakin akan menghapus data SKPI anda?')
+        if(c){
+            window.location.href=$(e.delegateTarget).attr('href')
+        }
+    })
+    });
+    </script>
+    @stop

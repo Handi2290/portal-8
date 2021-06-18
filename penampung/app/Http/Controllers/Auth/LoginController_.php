@@ -1,0 +1,428 @@
+<?php
+
+namespace App\Http\Controllers\Auth;
+
+use App\Http\Controllers\Controller;
+use App\Http\Controllers\SystemController;
+use Illuminate\Foundation\Auth\AuthenticatesUsers;
+use Illuminate\Support\Facades\Redirect;
+use Illuminate\Http\Request;
+
+use DB;
+use URL;
+use Auth;
+use Session;
+use App\Admin;
+use App\AdminSmk;
+use App\AdminSmp;
+use App\Mahasiswa;
+use App\Dosen;
+
+class LoginController extends Controller
+{
+    function __construct()
+    {
+        $this->middleware('guest:users', ['except' => 'logout']);
+    }
+
+    function form(Request $req)
+    {
+        if($req->segment(1) == 'mahasiswa')
+        {
+            $route = "mahasiswa.login.auth";
+        }
+        elseif($req->segment(1) == 'dosen')
+        {
+            $route = "dosen.login.auth";
+        }
+        elseif($req->segment(1) == 'admin')
+        {
+            $route = "admin.login.auth";
+        }
+        elseif($req->segment(1) == 'wali')
+        {
+            $route = "wali.login.auth";
+        }
+         elseif($req->segment(1) == 'admin_smk')
+        {
+            $route = "admin_smk.login.auth";
+        }
+        elseif($req->segment(1) == 'admin_smp')
+        {
+            $route = "admin_smp.login.auth";
+        }
+        
+        return view('login', compact('route'));
+    }
+
+    // start spp
+    public function batas_pembayaran_krs($tahun_akademik)
+    {
+        $tahun = substr($tahun_akademik, 0, 4);
+
+        $batas_pembayaran_krs = Batas_pembayaran::where([
+                'jenis_pembayaran' => 'KRS',
+                'semester' => substr($tahun_akademik, -2) == '10' ? 'Ganjil' : 'Genap'
+            ])
+            ->first();
+
+        $batas_pembayaran_krs_genap = Batas_pembayaran::where([
+                'jenis_pembayaran' => 'KRS',
+                'semester' => 'Genap'
+            ])
+            ->first();
+        
+        if ($batas_pembayaran_krs->bulan <= $batas_pembayaran_krs_genap->bulan)
+        {
+            $tahun = substr($tahun_akademik, 0, 4) + 1;
+        }
+
+        $pembayaran_spp = Pembayaran_spp::select([
+            't_pembayaran_spp.bulan',
+            DB::raw('IF(RIGHT(t_tahun_akademik.tahun_akademik, 2) = "10", IF(t_pembayaran_spp.bulan = 1, LEFT(t_tahun_akademik.tahun_akademik, 4) + 1, LEFT(t_tahun_akademik.tahun_akademik, 4)), LEFT(t_tahun_akademik.tahun_akademik, 4) + 1) AS tahun')
+        ])
+        ->leftJoin('t_tahun_akademik', 't_pembayaran_spp.id_tahun_akademik', '=', 't_tahun_akademik.id_tahun_akademik')
+        ->where([
+            't_pembayaran_spp.nim' => Auth::guard('mahasiswa')->user()->nim,
+            't_pembayaran_spp.bulan' => $batas_pembayaran_krs->bulan
+        ])
+        ->having('tahun', $tahun)
+        ->orderBy('tahun', 'ASC')
+        ->orderBy('t_pembayaran_spp.bulan', 'ASC')
+        ->first();
+
+        return (object) array(
+            'pembayaran_spp' => $pembayaran_spp,
+            'batas_pembayaran_krs' => $batas_pembayaran_krs
+        );
+    }
+    // end spp
+
+    function login(Request $request)
+    {
+        $system = new SystemController();
+
+        if($request->segment(1) == 'mahasiswa')
+        {
+            $count = Mahasiswa::where('nim', $request->nim)->count();
+            if ($count > 0) {
+                # code...
+                $mahasiswa = Mahasiswa::where('nim', $request->nim)->get();
+                foreach($mahasiswa as $view){
+
+                        $password = $system->encrypt($request->password, $request->nim, $request->nim);
+                        //$password = $system->decrypt('555b7475da5474d91a0e306251dff281', $request->nim, $request->nim);
+                        //echo $password;
+                        //die();
+                        if ($mhs = Mahasiswa::where(['nim' => $request->nim, 'password' => $password])->first())                        {
+                            Auth::guard('mahasiswa')->login($mhs);
+                            DB::table('t_pembayaran_spp')
+                                ->select('nim')
+                                ->where('nim', 1)
+                                ->first();
+                            // dd(DB::table('t_pembayaran_spp'));
+				            if ($mhs->isFirstLogin == null)
+                            {
+                                Session::flash('flash_lengkapi', 'Silahkan lengkapi kolom berikut sesuai dengan data anda saat ini.');
+                                
+                                // $mhs->update([
+                                //     'isFirstLogin' => 'N'
+                                // ]);
+                                return redirect()->route('mahasiswa.profil.ubah');
+                            }
+                            else
+                            {
+                                
+                                $tahun_akademik = DB::table('t_tahun_akademik')
+                                        ->where('t_tahun_akademik.tahun_akademik', Auth::guard('mahasiswa')->user()->tahun_akademik)
+                                        ->first();
+                                
+                                if ($tahun_akademik->semester == 'Ganjil') {
+                                    $list_bulan = array(
+                                        8 => 'Agustus',
+                                        9 => 'September',
+                                        10 => 'Oktober',
+                                        11 => 'November',
+                                        12 => 'Desember',
+                                        1 => 'Januari'
+                                    );
+                                } else {
+                                    $list_bulan = array(
+                                        2 => 'Februari',
+                                        3 => 'Maret',
+                                        4 => 'April',
+                                        5 => 'Mei',
+                                        6 => 'Juni',
+                                        7 => 'Juli',
+                                    );
+                                }
+
+                                $count_pembayaran = 0;
+
+                                foreach ($list_bulan as $key => $val)
+                                {
+                                    $count_pembayaran += 1;
+
+                                    if ($key == date('m'))
+                                    {
+                                        break;
+                                    }
+                                }
+
+                                $pembayaran_spp = DB::table('t_pembayaran_spp')
+                                    ->where([
+                                        'nim' => Auth::guard('mahasiswa')->user()->nim,
+                                        'id_tahun_akademik' => $tahun_akademik->id_tahun_akademik
+                                    ])
+                                    ->whereIn('bulan', array_keys($list_bulan))
+                                    ->count();
+
+                                $sudah_bayar = ($count_pembayaran == $pembayaran_spp);
+                                
+                                $bayaran = DB::select("select 1
+                                                    from t_tahun_akademik tta
+                                                    join t_pembayaran_spp tts
+                                                        on tta.id_tahun_akademik = tts.id_tahun_akademik
+                                                    where tts.nim = ".Auth::guard('mahasiswa')->user()->nim."
+                                                    and tta.tahun_akademik in (select
+                                                    concat(case when date_format(now(),'%m')*1 <8 then date_format(now(), '%Y')-1
+                                                    else date_format(now(), '%Y') end,
+                                                    case 
+                                                    when date_format(now(), '%m') in ('08','09','10','11','12','01') then '10'
+                                                    else '20'
+                                                    end))");
+
+                                $bayaran = count($bayaran);
+
+                                if ($bayaran < 5){
+                                    return view('pages.mahasiswa.pembayaran_spp.statusBayaran');
+                                } else {
+                                    return redirect()->route('mahasiswa.home');
+                                }
+
+                            }
+                            
+                            return redirect()->intended(route('mahasiswa.home'));
+                        }
+                        else
+                        {
+                            Session::flash('fail', 'Username atau Password salah.');
+                
+                            return redirect()->back()->withInput($request->only('nim'));
+                        }
+                    }
+            }else{
+                Session::flash('fail', 'NIM tidak terdaftar.');
+                
+                return redirect()->back();
+            }
+        }
+        
+        elseif($request->segment(1) == 'dosen')
+        {
+            $count = Dosen::where('nip', $request->nip)->count();
+            if ($count > 0) {
+                # code...
+                $dosen = Dosen::where('nip', $request->nip)->get();
+                foreach($dosen as $view){
+                    //$password = $system->decrypt('5e6b32da9fc2f0cef31789fa5ddf4701', $request->nip, $request->nip);
+                    //echo $password;
+                    //die();
+                    $password = $system->encrypt($request->password, $request->nip, $request->nip);
+                        if ($dsn = Dosen::where(['nip' => $request->nip, 'password' => $password])->first())
+                        {
+
+                            Auth::guard('dosen')->login($dsn);
+                            return redirect()->intended(route('dosen.home'));
+                        }
+                        else
+                        {
+                            Session::flash('fail', 'Username atau Password salah.');
+                
+                            return redirect()->back()->withInput($request->only('nip'));
+                        }
+                    }
+            }else{
+                Session::flash('fail', 'NIP tidak terdaftar.');
+                
+                return redirect()->back();
+            }
+        }
+        elseif($request->segment(1) == 'admin')
+        {
+            $count = Admin::where('username', $request->username)->count();
+            if ($count > 0) {
+                # code...
+                $admin = Admin::where('username', $request->username)->get();
+                foreach($admin as $view){
+                    $password = $system->encrypt($request->password, $request->username, $request->username);
+                    if ($adm = Admin::where(['username' => $request->username, 'password' => $password])->first())
+                    {
+                        Auth::guard('admin')->login($adm);
+                        return redirect()->intended(route('admin.home'));
+                    }
+                    else
+                    {
+                        Session::flash('fail', 'Username atau Password salah.');
+            
+                        return redirect()->back()->withInput($request->only('username'));
+                    }
+                }
+            }else{
+                Session::flash('fail', 'Username tidak terdaftar.');
+                
+                return redirect()->back();
+            }
+        }
+        elseif($request->segment(1) == 'wali')
+        {
+            $count = Mahasiswa::where('nim', $request->nim)->count();
+            if ($count > 0) {
+                # code...
+                $mahasiswa = Mahasiswa::where('nim', $request->nim)->get();
+                foreach($mahasiswa as $view){
+
+                        $password = $system->encrypt($request->password, $request->nim, $request->nim);
+                        if ($mhs = Mahasiswa::where(['nim' => $request->nim, 'password' => $password])->first())
+                        {
+
+                            Auth::guard('wali')->login($mhs);
+                            return redirect()->intended(route('wali.home'));
+                        }
+                        else
+                        {
+                            Session::flash('fail', 'Username atau Password salah.');
+                
+                            return redirect()->back()->withInput($request->only('nim'));
+                        }
+                    }
+            }else{
+                Session::flash('fail', 'NIM tidak terdaftar.');
+                
+                return redirect()->back();
+            }
+        }
+        
+        elseif($request->segment(1) == 'admin_smk')
+        {
+            $count = AdminSmk::where('username', $request->username)->count();
+            if ($count > 0) {
+                
+                $adminsmk = AdminSmk::where('username', $request->username)->get();
+                foreach($adminsmk as $view){
+
+                        $password = $system->encrypt($request->password, $request->username, $request->username);
+                        if ($admsmk = AdminSmk::where(['username' => $request->username, 'password' => $password])->first())
+                        {
+                            Auth::guard('admin_smk')->login($admsmk);
+                            return redirect()->intended(route('admin_smk.home'));
+                        }
+                        else
+                        {
+                            Session::flash('fail', 'Username atau Password salah.');
+                
+                            return redirect()->back()->withInput($request->only('username'));
+                        }
+                    }
+            }else{
+                Session::flash('fail', 'Username tidak terdaftar.');
+                
+                return redirect()->back();
+            }
+        }        
+
+         elseif($request->segment(1) == 'admin_smp')
+        {
+            $count = AdminSmp::where('username', $request->username)->count();
+            if ($count > 0) {
+                
+                $adminsmp = AdminSmp::where('username', $request->username)->get();
+                foreach($adminsmp as $view){
+
+                        $password = $system->encrypt($request->password, $request->username, $request->username);
+                        if ($admsmp = AdminSmp::where(['username' => $request->username, 'password' => $password])->first())
+                        {
+                            Auth::guard('admin_smp')->login($admsmp);
+                            return redirect()->intended(route('admin_smp.home'));
+                        }
+                        else
+                        {
+                            Session::flash('fail', 'Username atau Password salah.');
+        
+                            return redirect()->back()->withInput($request->only('username'));
+                        }
+                    }
+            }else{
+                Session::flash('fail', 'Username tidak terdaftar.');
+                
+                return redirect()->back();
+            }
+        }        
+        
+    }
+
+    function logout(Request $request)
+    {
+        if($request->segment(1) == 'mahasiswa')
+        {
+            Auth::guard('mahasiswa')->logout();
+
+            return redirect()->route('mahasiswa.login');
+        }
+        if($request->segment(1) == 'dosen')
+        {
+            Auth::guard('dosen')->logout();
+
+            return redirect()->route('dosen.login');
+        }
+        if($request->segment(1) == 'admin')
+        {
+            Auth::guard('admin')->logout();
+
+            return redirect()->route('admin.login');
+        }
+        if($request->segment(1) == 'wali')
+        {
+            Auth::guard('wali')->logout();
+
+            return redirect()->route('wali.login');
+        }
+        
+        if($request->segment(1) == 'admin_smk')
+        {
+            Auth::guard('admin_smk')->logout();
+
+            return redirect()->route('admin_smk.login');
+        }
+
+         if($request->segment(1) == 'admin_smp')
+        {
+            Auth::guard('admin_smp')->logout();
+
+            return redirect()->route('admin_smp.login');
+        }
+    }
+
+
+    public function loginMhs()
+    {
+        $mhs = Mahasiswa::where(['nim' => '1916120239', 'password' => '2be812dc2b728b14ad01a1cea8b73039'])->first();
+        Auth::guard('mahasiswa')->login($mhs);
+        return redirect()->intended(route('mahasiswa.home'));
+    }
+
+    public function loginKeu()
+    {
+        $adm = Admin::where(['username' => 'SARTIKA', 'password' => '7088e014289677fdcd7a5ef6d02303f3'])->first();
+        Auth::guard('admin')->login($adm);
+        return redirect()->intended(route('admin.home'));
+    }
+
+    public function loginAdmin()
+    {
+        $adm = Admin::where(['username' => 'purwanti', 'password' => '3ad12e3ef947178340b311f275754627'])->first();
+        Auth::guard('admin')->login($adm);
+        return redirect()->intended(route('admin.home'));
+    }
+
+}
